@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:desktop_window/desktop_window.dart' as window_size;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:translate_subtitles/constant/constant.dart';
+import 'package:translate_subtitles/constant/translate_colors.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +47,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((shap) {
-      outPath = shap.getString(C_OUTPATH);
+      outPath = shap.getString(kTranslateOutPath);
       setState(() {});
     });
   }
@@ -55,7 +56,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        padding: EdgeInsets.all(10),
+        padding: const EdgeInsets.all(10),
         decoration: const BoxDecoration(
           color: Colors.blueGrey,
         ),
@@ -74,10 +75,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   children: [
                     AppBar(
                       title: const Text(
-                          '翻译列表',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 20,color: Colors.black),
-                        ),
+                        '翻译列表',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: Colors.black),
+                      ),
                       backgroundColor: Colors.white70,
                     ),
                     buildConversionList()
@@ -99,44 +102,29 @@ class _MyHomePageState extends State<MyHomePage> {
       decoration: const BoxDecoration(color: Colors.white54),
       child: Row(
         children: <Widget>[
-          Expanded(
-            child: Column(
-              children: <Widget>[
-                ...List.generate(files?.length ?? 0, (index) {
-                  return buildFileItem(files!.elementAt(index), index);
-                })
-              ],
-            ),
+          Expanded(child: Text(inputDirectoryPath())),
+          InkWell(
+            child: const Icon(Icons.close_rounded),
+            onTap: () async {
+              files = null;
+              setState(() {});
+            },
           ),
           const SizedBox(width: 10),
-          ElevatedButton(onPressed: _selectFile, child: const Text('选择文件')),
+          ElevatedButton(onPressed: _selectFile, child: const Text('选取目录')),
         ],
       ),
     );
   }
 
-  // 文件选项
-  Widget buildFileItem(String path, index) {
-    return SizedBox(
-      height: 30,
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              path.split('/').last,
-              maxLines: 1,
-            ),
-          ),
-          InkWell(
-            child: const Icon(Icons.close_rounded),
-            onTap: () {
-              files?.removeAt(index);
-              setState(() {});
-            },
-          )
-        ],
-      ),
-    );
+  String inputDirectoryPath() {
+    String text = '';
+    if ((files?.length ?? 0) > 0) {
+      List<String>? list = files?.first.split('/');
+      list?.removeLast();
+      text = list?.join('/') ?? '';
+    }
+    return text;
   }
 
   // 选择输出路径
@@ -151,8 +139,10 @@ class _MyHomePageState extends State<MyHomePage> {
           if (outPath != null) ...[
             InkWell(
               child: const Icon(Icons.close_rounded),
-              onTap: () {
+              onTap: () async {
                 outPath = null;
+                SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+                sharedPreferences.remove(kTranslateOutPath);
                 setState(() {});
               },
             ),
@@ -169,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowMultiple: true,
-        allowedExtensions: ['srt'],
+        allowedExtensions: ['srt', 'vtt'],
         lockParentWindow: true);
     if (result != null) {
       files = result.paths.map((e) => e!).toList();
@@ -184,12 +174,48 @@ class _MyHomePageState extends State<MyHomePage> {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory != null) {
       outPath = selectedDirectory;
+      SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+      sharedPreferences.setString(kTranslateOutPath, outPath!);
       setState(() {});
     }
   }
 
   // 转换列表
   Widget buildConversionList() {
-    return Container();
+    return Expanded(
+        child: ListView.builder(
+      itemCount: files?.length ?? 0,
+      itemBuilder: (context, index) {
+        return Container(
+          width: double.infinity,
+          height: 50,
+          margin: const EdgeInsets.only(top: 10, left: 10, right: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: TranslateColors.itemBgColor,
+          ),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(files?.elementAt(index).split('/').last ?? '',maxLines: 2,overflow: TextOverflow.ellipsis,),
+              ),
+              InkWell(
+                child: const Icon(Icons.close_rounded),
+                onTap: () {
+                  setState(() {
+                    files?.removeAt(index);
+                  });
+                },
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                child: const Text(kTranslateText),
+                onPressed: () {},
+              )
+            ],
+          ),
+        );
+      },
+    ));
   }
 }
